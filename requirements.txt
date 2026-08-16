@@ -1,0 +1,4 @@
+# project_root/requirements.txt
+
+customtkinter==5.2.2
+minecraft-launcher-lib==8.0
