@@ -1,0 +1,67 @@
+name: Build H4Launcher
+
+# Runs build.py identically on Windows, macOS, and Linux, since
+# PyInstaller can't cross-compile - this is what actually produces
+# "all three OSes from one script".
+#
+# Triggers on version tags (v1.0.0 etc) and can also be run manually
+# from the Actions tab.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: H4Launcher-windows
+            artifact_path: dist/H4Launcher-*-windows-x64.zip
+
+          - os: macos-latest
+            artifact_name: H4Launcher-macos
+            artifact_path: |
+              dist/H4Launcher-*-macos.zip
+              dist/H4Launcher-*-macos.dmg
+
+          - os: ubuntu-latest
+            artifact_name: H4Launcher-linux
+            artifact_path: dist/H4Launcher-*-linux-x64.tar.gz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Tk (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-build.txt
+
+      - name: Build
+        run: python build.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
