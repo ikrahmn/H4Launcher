@@ -9,10 +9,7 @@ from typing import Any
 
 APP_NAME = "H4Launcher"
 
-# ============================================================
 # Project paths
-# ============================================================
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # H4Launcher/.minecraft
@@ -35,10 +32,7 @@ CONFIG_DIRECTORY.mkdir(
 CONFIG_FILE = CONFIG_DIRECTORY / "config.json"
 
 
-# ============================================================
 # Default configuration
-# ============================================================
-
 DEFAULT_CONFIG: dict[str, Any] = {
     "settings": {
         # Minecraft
@@ -76,10 +70,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 
-# ============================================================
 # Internal helpers
-# ============================================================
-
 def _deep_merge(
     defaults: dict[str, Any],
     values: dict[str, Any],
@@ -104,10 +95,7 @@ def _deep_merge(
     return result
 
 
-# ============================================================
 # Config API
-# ============================================================
-
 def load_config() -> dict[str, Any]:
 
     if not CONFIG_FILE.exists():
@@ -214,10 +202,7 @@ def set_setting(
     )
 
 
-# ============================================================
 # Authentication
-# ============================================================
-
 def get_auth_data() -> dict[str, Any]:
 
     config = load_config()

@@ -1,7 +1,4 @@
-# project_root/main.py
-
 from ui.app import LauncherApp
-
 
 def main():
 

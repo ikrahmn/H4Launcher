@@ -1,0 +1,171 @@
+<!-- project_root/assets/logo.svg -->
+
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="256"
+    height="256"
+    viewBox="0 0 256 256"
+>
+    <!-- Sky -->
+    <rect
+        x="0"
+        y="0"
+        width="256"
+        height="256"
+        rx="28"
+        fill="#DCEEFF"
+    />
+
+    <!-- Grass top -->
+    <path
+        d="
+            M24 72
+            L24 48
+            L48 48
+            L48 32
+            L72 32
+            L72 48
+            L96 48
+            L96 32
+            L120 32
+            L120 48
+            L144 48
+            L144 32
+            L168 32
+            L168 48
+            L192 48
+            L192 32
+            L216 32
+            L216 48
+            L232 48
+            L232 72
+            Z
+        "
+        fill="#5FAE4E"
+    />
+
+    <!-- Dirt block -->
+    <path
+        d="
+            M24 72
+            L232 72
+            L232 216
+            L24 216
+            Z
+        "
+        fill="#8A5738"
+    />
+
+    <!-- Dirt texture -->
+    <rect
+        x="42"
+        y="92"
+        width="28"
+        height="20"
+        rx="4"
+        fill="#75462F"
+    />
+
+    <rect
+        x="178"
+        y="104"
+        width="34"
+        height="24"
+        rx="4"
+        fill="#75462F"
+    />
+
+    <rect
+        x="92"
+        y="166"
+        width="30"
+        height="22"
+        rx="4"
+        fill="#75462F"
+    />
+
+    <rect
+        x="154"
+        y="184"
+        width="26"
+        height="18"
+        rx="4"
+        fill="#75462F"
+    />
+
+    <rect
+        x="42"
+        y="174"
+        width="22"
+        height="18"
+        rx="4"
+        fill="#9D6745"
+    />
+
+    <!-- H4 panel -->
+    <rect
+        x="60"
+        y="84"
+        width="136"
+        height="112"
+        rx="14"
+        fill="#17304D"
+    />
+
+    <!-- H -->
+    <path
+        d="
+            M82 104
+            L98 104
+            L98 138
+            L118 138
+            L118 104
+            L134 104
+            L134 176
+            L118 176
+            L118 153
+            L98 153
+            L98 176
+            L82 176
+            Z
+        "
+        fill="#FFFFFF"
+    />
+
+    <!-- 4 -->
+    <path
+        d="
+            M158 104
+            L176 104
+            L176 148
+            L187 148
+            L187 162
+            L176 162
+            L176 176
+            L160 176
+            L160 162
+            L143 162
+            L143 146
+            Z
+
+            M159 127
+            L151 148
+            L160 148
+            Z
+        "
+        fill="#FFFFFF"
+    />
+
+    <!-- Subtle outline -->
+    <rect
+        x="24"
+        y="24"
+        width="208"
+        height="208"
+        rx="28"
+        fill="none"
+        stroke="#17304D"
+        stroke-width="4"
+        opacity="0.18"
+    />
+</svg>

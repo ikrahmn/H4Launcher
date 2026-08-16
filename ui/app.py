@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import base64
 import os
 import subprocess
 import sys
-import uuid
-from pathlib import Path
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
@@ -17,6 +17,10 @@ from core.launcher import (
     SUPPORTED_VERSIONS,
     LOADER_VANILLA,
     LOADER_FORGE,
+)
+
+from core.profile import (
+    ProfileService,
 )
 
 from utils.config_manager import (
@@ -34,14 +38,14 @@ from ui.components import (
     SectionLabel,
     FlatProgressBar,
     Console,
+    ProfileCard,
 )
 
 
-# ============================================================
 # H4Launcher
-# ============================================================
-
-class LauncherApp(ctk.CTk):
+class LauncherApp(
+    ctk.CTk
+):
 
     def __init__(self):
 
@@ -52,12 +56,12 @@ class LauncherApp(ctk.CTk):
         )
 
         self.geometry(
-            "1080x700"
+            "1080x760"
         )
 
         self.minsize(
             900,
-            620,
+            680,
         )
 
         self.theme_name = get_setting(
@@ -69,25 +73,70 @@ class LauncherApp(ctk.CTk):
             self.theme_name
         )
 
-        ctk.set_appearance_mode(
-            "light"
-        )
-
         self.launcher = (
             MinecraftLauncher()
         )
 
+        self.profile_service = (
+            ProfileService()
+        )
+
         self.is_launching = False
+
+        self._logo_image = None
+
+        self._configure_window_icon()
 
         self._build_ui()
 
         self._load_saved_values()
 
-    # ========================================================
-    # UI
-    # ========================================================
+        self._load_profile()
 
-    def _build_ui(self):
+    # Window icon
+
+    def _configure_window_icon(
+        self,
+    ):
+
+        """
+        Tkinter does not natively load SVG files as window
+        icons. Therefore we embed a small PNG representation
+        generated from the same H4Launcher logo concept.
+
+        The SVG remains in assets/logo.svg as the editable
+        source artwork.
+        """
+
+        # Tiny 1x1 transparent fallback.
+        # The actual logo can be replaced with a generated
+        # PNG asset later without changing the UI.
+        fallback_png = (
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB"
+            "CAQAAAC1HAwCAAAAC0lEQVR42mNk"
+            "+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        )
+
+        try:
+
+            self._logo_image = tk.PhotoImage(
+                data=fallback_png
+            )
+
+            self.iconphoto(
+                True,
+                self._logo_image,
+            )
+
+        except Exception:
+
+            pass
+
+    # UI
+
+    def _build_ui(
+        self,
+    ):
 
         self.configure(
             fg_color=self.theme["bg"]
@@ -103,9 +152,7 @@ class LauncherApp(ctk.CTk):
             weight=1,
         )
 
-        # ----------------------------------------------------
         # Sidebar
-        # ----------------------------------------------------
 
         sidebar = ctk.CTkFrame(
             self,
@@ -133,14 +180,55 @@ class LauncherApp(ctk.CTk):
         )
 
         # Logo
-        logo = ctk.CTkLabel(
+
+        logo_row = ctk.CTkFrame(
             sidebar,
+
+            fg_color="transparent",
+        )
+
+        logo_row.pack(
+            fill="x",
+
+            padx=20,
+
+            pady=(24, 4),
+        )
+
+        logo_mark = ctk.CTkLabel(
+            logo_row,
+
+            text="H4",
+
+            width=42,
+
+            height=42,
+
+            fg_color="#17304D",
+
+            corner_radius=8,
+
+            text_color="#FFFFFF",
+
+            font=ctk.CTkFont(
+                family=FONT,
+                size=15,
+                weight="bold",
+            ),
+        )
+
+        logo_mark.pack(
+            side="left"
+        )
+
+        logo_text = ctk.CTkLabel(
+            logo_row,
 
             text="H4Launcher",
 
             font=ctk.CTkFont(
                 family=FONT,
-                size=22,
+                size=18,
                 weight="bold",
             ),
 
@@ -149,12 +237,10 @@ class LauncherApp(ctk.CTk):
             anchor="w",
         )
 
-        logo.pack(
-            fill="x",
+        logo_text.pack(
+            side="left",
 
-            padx=24,
-
-            pady=(28, 5),
+            padx=10,
         )
 
         subtitle = ctk.CTkLabel(
@@ -177,10 +263,9 @@ class LauncherApp(ctk.CTk):
 
             padx=24,
 
-            pady=(0, 30),
+            pady=(0, 25),
         )
 
-        # Navigation separator
         separator = ctk.CTkFrame(
             sidebar,
 
@@ -198,6 +283,7 @@ class LauncherApp(ctk.CTk):
         )
 
         # Version
+
         SectionLabel(
             sidebar,
 
@@ -252,6 +338,7 @@ class LauncherApp(ctk.CTk):
         )
 
         # Loader
+
         SectionLabel(
             sidebar,
 
@@ -308,7 +395,6 @@ class LauncherApp(ctk.CTk):
             pady=(0, 18),
         )
 
-        # Forge mods button
         self.mods_button = SecondaryButton(
             sidebar,
 
@@ -321,19 +407,8 @@ class LauncherApp(ctk.CTk):
             command=self._open_mods_folder,
         )
 
-        # hidden initially
-        self.mods_button.pack(
-            fill="x",
+        # Sidebar bottom
 
-            padx=24,
-
-            pady=(0, 18),
-        )
-
-        # Hide until Forge
-        self.mods_button.pack_forget()
-
-        # Bottom navigation
         sidebar_bottom = ctk.CTkFrame(
             sidebar,
 
@@ -362,9 +437,7 @@ class LauncherApp(ctk.CTk):
             fill="x"
         )
 
-        # ----------------------------------------------------
-        # Main area
-        # ----------------------------------------------------
+        # Main
 
         main = ctk.CTkFrame(
             self,
@@ -379,9 +452,6 @@ class LauncherApp(ctk.CTk):
             column=1,
 
             sticky="nsew",
-
-            padx=0,
-            pady=0,
         )
 
         main.grid_columnconfigure(
@@ -390,11 +460,12 @@ class LauncherApp(ctk.CTk):
         )
 
         main.grid_rowconfigure(
-            2,
+            4,
             weight=1,
         )
 
         # Header
+
         header = ctk.CTkFrame(
             main,
 
@@ -408,13 +479,14 @@ class LauncherApp(ctk.CTk):
             sticky="ew",
 
             padx=34,
-            pady=(28, 20),
+
+            pady=(26, 15),
         )
 
         title = ctk.CTkLabel(
             header,
 
-            text="Play",
+            text="Play Minecraft",
 
             font=ctk.CTkFont(
                 family=FONT,
@@ -434,7 +506,7 @@ class LauncherApp(ctk.CTk):
         self.account_label = ctk.CTkLabel(
             header,
 
-            text="Not signed in",
+            text="Offline profile",
 
             font=ctk.CTkFont(
                 family=FONT,
@@ -452,9 +524,26 @@ class LauncherApp(ctk.CTk):
             pady=(3, 0),
         )
 
-        # ----------------------------------------------------
-        # Play section
-        # ----------------------------------------------------
+        # Profile
+
+        self.profile_card = ProfileCard(
+            main,
+
+            theme=self.theme,
+        )
+
+        self.profile_card.grid(
+            row=1,
+            column=0,
+
+            sticky="ew",
+
+            padx=34,
+
+            pady=(0, 18),
+        )
+
+        # Play panel
 
         play_panel = ctk.CTkFrame(
             main,
@@ -469,12 +558,13 @@ class LauncherApp(ctk.CTk):
         )
 
         play_panel.grid(
-            row=1,
+            row=2,
             column=0,
 
             sticky="ew",
 
             padx=34,
+
             pady=(0, 18),
         )
 
@@ -483,36 +573,27 @@ class LauncherApp(ctk.CTk):
             weight=1,
         )
 
-        selected_label = ctk.CTkLabel(
+        SectionLabel(
             play_panel,
 
-            text="Selected installation",
+            "SELECTED INSTALLATION",
 
-            font=ctk.CTkFont(
-                family=FONT,
-                size=10,
-                weight="bold",
-            ),
-
-            text_color=self.theme["text_muted"],
-
-            anchor="w",
-        )
-
-        selected_label.grid(
+            theme=self.theme,
+        ).grid(
             row=0,
             column=0,
 
-            padx=22,
-            pady=(18, 3),
-
             sticky="w",
+
+            padx=22,
+
+            pady=(17, 3),
         )
 
         self.selected_installation_label = ctk.CTkLabel(
             play_panel,
 
-            text="Minecraft 1.16.5",
+            text="Minecraft 1.16.5 | Vanilla",
 
             font=ctk.CTkFont(
                 family=FONT,
@@ -529,11 +610,11 @@ class LauncherApp(ctk.CTk):
             row=1,
             column=0,
 
+            sticky="w",
+
             padx=22,
 
-            pady=(0, 18),
-
-            sticky="w",
+            pady=(0, 17),
         )
 
         self.play_button = PrimaryButton(
@@ -557,12 +638,11 @@ class LauncherApp(ctk.CTk):
             rowspan=2,
 
             padx=22,
-            pady=18,
+
+            pady=17,
         )
 
-        # ----------------------------------------------------
-        # Console
-        # ----------------------------------------------------
+        # Console header
 
         console_header = ctk.CTkFrame(
             main,
@@ -571,12 +651,13 @@ class LauncherApp(ctk.CTk):
         )
 
         console_header.grid(
-            row=2,
+            row=3,
             column=0,
 
-            sticky="new",
+            sticky="ew",
 
             padx=34,
+
             pady=(0, 5),
         )
 
@@ -585,23 +666,13 @@ class LauncherApp(ctk.CTk):
             weight=1,
         )
 
-        console_title = ctk.CTkLabel(
+        SectionLabel(
             console_header,
 
-            text="LAUNCH CONSOLE",
+            "LAUNCH CONSOLE",
 
-            font=ctk.CTkFont(
-                family=FONT,
-                size=10,
-                weight="bold",
-            ),
-
-            text_color=self.theme["text_muted"],
-
-            anchor="w",
-        )
-
-        console_title.grid(
+            theme=self.theme,
+        ).grid(
             row=0,
             column=0,
 
@@ -623,9 +694,9 @@ class LauncherApp(ctk.CTk):
         ).grid(
             row=0,
             column=1,
-
-            padx=(10, 0),
         )
+
+        # Console
 
         self.console = Console(
             main,
@@ -634,21 +705,18 @@ class LauncherApp(ctk.CTk):
         )
 
         self.console.grid(
-            row=3,
+            row=4,
             column=0,
 
             sticky="nsew",
 
             padx=34,
-            pady=(0, 18),
-        )
 
-        main.grid_rowconfigure(
-            3,
-            weight=1,
+            pady=(0, 15),
         )
 
         # Status
+
         self.status_label = ctk.CTkLabel(
             main,
 
@@ -665,14 +733,14 @@ class LauncherApp(ctk.CTk):
         )
 
         self.status_label.grid(
-            row=4,
+            row=5,
             column=0,
 
             sticky="ew",
 
             padx=34,
 
-            pady=(0, 8),
+            pady=(0, 7),
         )
 
         self.progress = FlatProgressBar(
@@ -682,28 +750,27 @@ class LauncherApp(ctk.CTk):
         )
 
         self.progress.grid(
-            row=5,
+            row=6,
             column=0,
 
             sticky="ew",
 
             padx=34,
 
-            pady=(0, 24),
+            pady=(0, 22),
         )
 
         self.progress.set(0)
 
-        # Initial loader state
         self._loader_changed(
             self.loader_var.get()
         )
 
-    # ========================================================
     # Saved settings
-    # ========================================================
 
-    def _load_saved_values(self):
+    def _load_saved_values(
+        self,
+    ):
 
         version = get_setting(
             "selected_version",
@@ -732,22 +799,108 @@ class LauncherApp(ctk.CTk):
 
         self._update_installation_label()
 
+    # Profile
+
+    def _load_profile(
+        self,
+    ):
+
         auth = get_auth_data()
 
-        username = auth.get(
-            "username",
+        username = (
+            auth.get(
+                "username",
+                "",
+            )
+            or get_setting(
+                "offline_username",
+                "Player",
+            )
+            or "Player"
+        )
+
+        access_token = auth.get(
+            "access_token",
             "",
         )
 
-        if username:
+        online = bool(
+            access_token
+        )
+
+        if online:
 
             self.account_label.configure(
-                text=f"Signed in as {username}"
+                text=(
+                    f"Microsoft account: "
+                    f"{username}"
+                )
             )
 
-    # ========================================================
+        else:
+
+            self.account_label.configure(
+                text=(
+                    f"Offline profile: "
+                    f"{username}"
+                )
+            )
+
+        # Show loading state
+
+        self.profile_card.name_label.configure(
+            text=username
+        )
+
+        self.profile_card.status_label.configure(
+            text=(
+                "Loading profile..."
+                if online
+                else "Offline profile"
+            )
+        )
+
+        self.profile_service.get_profile_async(
+
+            username=username,
+
+            online=online,
+
+            callback=self._profile_loaded,
+
+            error_callback=self._profile_error,
+        )
+
+    def _profile_loaded(
+        self,
+        profile,
+    ):
+
+        self.after(
+            0,
+            lambda: self.profile_card.set_profile(
+                profile
+            ),
+        )
+
+    def _profile_error(
+        self,
+        error,
+    ):
+
+        self.after(
+            0,
+            lambda: self.profile_card.status_label.configure(
+                text="Profile unavailable"
+            ),
+        )
+
+        self._write_console(
+            "[PROFILE] Could not load profile: "
+            f"{error}\n"
+        )
+
     # Version / loader
-    # ========================================================
 
     def _version_changed(
         self,
@@ -760,10 +913,6 @@ class LauncherApp(ctk.CTk):
         )
 
         self._update_installation_label()
-
-        if self.loader_var.get() == LOADER_FORGE:
-
-            self._refresh_forge_state()
 
     def _loader_changed(
         self,
@@ -789,13 +938,13 @@ class LauncherApp(ctk.CTk):
                 after=self.loader_menu,
             )
 
-            self._refresh_forge_state()
-
         else:
 
             self.mods_button.pack_forget()
 
-    def _update_installation_label(self):
+    def _update_installation_label(
+        self,
+    ):
 
         version = (
             self.version_var.get()
@@ -806,70 +955,21 @@ class LauncherApp(ctk.CTk):
         )
 
         self.selected_installation_label.configure(
-            text=f"Minecraft {version}  |  {loader}"
-        )
-
-    def _refresh_forge_state(self):
-
-        version = (
-            self.version_var.get()
-        )
-
-        forge_version = (
-            self.launcher.get_forge_version(
-                version
+            text=(
+                f"Minecraft {version}"
+                f"  |  "
+                f"{loader}"
             )
         )
 
-        if forge_version:
-
-            self._write_console(
-                f"[FORGE] Available: "
-                f"{forge_version}\n"
-            )
-
-        else:
-
-            self._write_console(
-                f"[FORGE] No Forge installation "
-                f"detected for Minecraft {version}.\n"
-            )
-
-    # ========================================================
     # Mods
-    # ========================================================
 
-    def _get_mods_directory(self) -> Path:
+    def _open_mods_folder(
+        self,
+    ):
 
-        return (
+        mods_directory = (
             self.launcher.get_mods_directory()
-        )
-
-    def _get_installed_mods(self) -> list[Path]:
-
-        mods_directory = (
-            self._get_mods_directory()
-        )
-
-        return sorted(
-            [
-                path
-                for path in mods_directory.iterdir()
-                if path.is_file()
-                and path.suffix.lower() == ".jar"
-            ],
-            key=lambda path: path.name.lower(),
-        )
-
-    def _open_mods_folder(self):
-
-        mods_directory = (
-            self._get_mods_directory()
-        )
-
-        mods_directory.mkdir(
-            parents=True,
-            exist_ok=True,
         )
 
         self._open_path(
@@ -881,7 +981,9 @@ class LauncherApp(ctk.CTk):
         path: Path,
     ):
 
-        path = Path(path)
+        path = Path(
+            path
+        )
 
         path.mkdir(
             parents=True,
@@ -918,14 +1020,77 @@ class LauncherApp(ctk.CTk):
 
         except Exception as exc:
 
-            messagebox.showerror(
+            self._show_error(
                 "H4Launcher",
                 f"Could not open folder:\n\n{exc}",
             )
 
-    # ========================================================
+    # Safe dialogs
+    #
+    # NSAlert (the native macOS dialog behind tkinter.messagebox)
+    # cannot be opened while AppKit is in the middle of a
+    # CoreAnimation transaction (e.g. while a widget is being
+    # redrawn/scrolled). Firing a messagebox straight from a
+    # background-thread callback via `self.after(0, ...)` can
+    # land exactly in the middle of such a transaction — for
+    # example right after a burst of console writes during the
+    # Forge install — which crashes the whole app with:
+    #   NSGenericException: -[NSAlert runModal] may not be
+    #   invoked inside of transaction begin/commit pair...
+    #
+    # `_show_error` / `_show_info` fix this by:
+    #   1. Always hopping to the Tk main thread via `self.after`.
+    #   2. Using a short (150ms) delay instead of 0, so the call
+    #      lands in its own event-loop tick rather than piggy-
+    #      backing on whatever redraw is already in flight.
+    #   3. Calling `update_idletasks()` first to flush any queued
+    #      redraws before the modal is opened.
+    #
+    # Always use these helpers instead of calling
+    # `tkinter.messagebox` directly anywhere a call might follow
+    # rapid widget updates (console writes, progress bars, etc.).
+
+    def _show_error(
+        self,
+        title: str,
+        message: str,
+    ) -> None:
+
+        def show():
+
+            self.update_idletasks()
+
+            messagebox.showerror(
+                title,
+                message,
+            )
+
+        self.after(
+            150,
+            show,
+        )
+
+    def _show_info(
+        self,
+        title: str,
+        message: str,
+    ) -> None:
+
+        def show():
+
+            self.update_idletasks()
+
+            messagebox.showinfo(
+                title,
+                message,
+            )
+
+        self.after(
+            150,
+            show,
+        )
+
     # Console
-    # ========================================================
 
     def _write_console(
         self,
@@ -939,7 +1104,9 @@ class LauncherApp(ctk.CTk):
             ),
         )
 
-    def _clear_console(self):
+    def _clear_console(
+        self,
+    ):
 
         self.console.clear()
 
@@ -975,11 +1142,11 @@ class LauncherApp(ctk.CTk):
             ),
         )
 
-    # ========================================================
     # Play
-    # ========================================================
 
-    def _play(self):
+    def _play(
+        self,
+    ):
 
         if self.is_launching:
 
@@ -989,6 +1156,7 @@ class LauncherApp(ctk.CTk):
 
         self.play_button.configure(
             state="disabled",
+
             text="LAUNCHING...",
         )
 
@@ -1023,15 +1191,20 @@ class LauncherApp(ctk.CTk):
             f"[CONFIG] Loader: {loader}\n"
         )
 
-        # ----------------------------------------------------
-        # Offline account
-        # ----------------------------------------------------
+        # Authentication / offline profile
 
         auth = get_auth_data()
 
-        username = auth.get(
-            "username",
-            "",
+        username = (
+            auth.get(
+                "username",
+                "",
+            )
+            or get_setting(
+                "offline_username",
+                "Player",
+            )
+            or "Player"
         )
 
         access_token = auth.get(
@@ -1044,54 +1217,45 @@ class LauncherApp(ctk.CTk):
             "",
         )
 
-        if not username:
-
-            username = get_setting(
-                "offline_username",
-                "Player",
-            )
-
-        if not player_uuid:
-
-            player_uuid = str(
-                uuid.uuid3(
-                    uuid.NAMESPACE_DNS,
-                    f"H4Launcher:{username}",
-                )
-            )
-
         offline = not bool(
             access_token
         )
 
+        if not player_uuid:
+
+            player_uuid = (
+                self.profile_service.offline_uuid(
+                    username
+                )
+            )
+
         if offline:
 
             self._write_console(
-                "[AUTH] Offline mode\n"
+                "[AUTH] Offline profile\n"
             )
 
         else:
 
             self._write_console(
-                f"[AUTH] Microsoft account: "
+                "[AUTH] Microsoft account: "
                 f"{username}\n"
             )
 
-        # ----------------------------------------------------
-        # Background launch
-        # ----------------------------------------------------
+        # Background installation / launch
 
         def worker():
 
             try:
 
-                # Vanilla installation
+                # Vanilla
+
                 if not self.launcher.is_version_installed(
                     version
                 ):
 
                     self._write_console(
-                        "[DOWNLOAD] Minecraft version "
+                        "[DOWNLOAD] Minecraft "
                         f"{version} is not installed.\n"
                     )
 
@@ -1100,6 +1264,7 @@ class LauncherApp(ctk.CTk):
                     )
 
                     self.launcher.install_version(
+
                         version,
 
                         callback=self._write_console,
@@ -1108,14 +1273,19 @@ class LauncherApp(ctk.CTk):
                     )
 
                 # Forge
+
                 if loader == LOADER_FORGE:
+
+                    self._set_status(
+                        "Checking Forge..."
+                    )
 
                     self._write_console(
                         "[FORGE] Checking installation...\n"
                     )
 
                     forge_version = (
-                        self.launcher.get_forge_version(
+                        self.launcher.find_forge_version(
                             version
                         )
                     )
@@ -1123,38 +1293,35 @@ class LauncherApp(ctk.CTk):
                     if not forge_version:
 
                         raise RuntimeError(
-                            f"No Forge version available "
-                            f"for Minecraft {version}."
+                            "No compatible Forge version "
+                            f"was found for Minecraft {version}."
                         )
 
-                    forge_dir = (
-                        self.launcher.minecraft_directory
-                        / "versions"
-                        / forge_version
+                    self._write_console(
+                        "[FORGE] Compatible version: "
+                        f"{forge_version}\n"
                     )
 
-                    if not forge_dir.exists():
+                    forge_installed_version = (
+                        self.launcher.ensure_forge(
 
-                        self._set_status(
-                            "Installing Forge..."
-                        )
-
-                        if not self.launcher.install_forge(
                             version,
-                            callback=self._write_console,
-                        ):
 
-                            raise RuntimeError(
-                                "Forge installation failed."
-                            )
+                            callback=self._write_console,
+
+                            progress_callback=self._set_progress,
+                        )
+                    )
 
                     launch_version = (
-                        forge_version
+                        forge_installed_version
                     )
 
                 else:
 
                     launch_version = version
+
+                # Launch
 
                 self._set_progress(
                     1.0
@@ -1165,7 +1332,7 @@ class LauncherApp(ctk.CTk):
                 )
 
                 self._write_console(
-                    f"[LAUNCH] Version: "
+                    "[LAUNCH] Version: "
                     f"{launch_version}\n"
                 )
 
@@ -1193,12 +1360,9 @@ class LauncherApp(ctk.CTk):
                     f"{exc}\n"
                 )
 
-                self.after(
-                    0,
-                    lambda: messagebox.showerror(
-                        "Launch Error",
-                        str(exc),
-                    ),
+                self._show_error(
+                    "H4Launcher",
+                    str(exc),
                 )
 
                 self._launch_finished(
@@ -1223,6 +1387,7 @@ class LauncherApp(ctk.CTk):
 
             self.play_button.configure(
                 state="normal",
+
                 text="PLAY",
             )
 
@@ -1252,11 +1417,11 @@ class LauncherApp(ctk.CTk):
             update,
         )
 
-    # ========================================================
     # Settings
-    # ========================================================
 
-    def _open_settings(self):
+    def _open_settings(
+        self,
+    ):
 
         window = ctk.CTkToplevel(
             self
@@ -1291,15 +1456,15 @@ class LauncherApp(ctk.CTk):
 
         container.pack(
             fill="both",
+
             expand=True,
 
             padx=24,
+
             pady=24,
         )
 
-        # ----------------------------------------------------
-        # Appearance
-        # ----------------------------------------------------
+        # Theme
 
         SectionLabel(
             container,
@@ -1315,7 +1480,7 @@ class LauncherApp(ctk.CTk):
             value=self.theme_name
         )
 
-        theme_menu = ctk.CTkOptionMenu(
+        ctk.CTkOptionMenu(
             container,
 
             variable=theme_var,
@@ -1339,18 +1504,13 @@ class LauncherApp(ctk.CTk):
             dropdown_hover_color=self.theme["surface_alt"],
 
             text_color=self.theme["text"],
-
-        )
-
-        theme_menu.pack(
+        ).pack(
             fill="x",
 
             pady=(6, 20)
         )
 
-        # ----------------------------------------------------
         # RAM
-        # ----------------------------------------------------
 
         SectionLabel(
             container,
@@ -1371,7 +1531,7 @@ class LauncherApp(ctk.CTk):
             )
         )
 
-        min_ram_entry = ctk.CTkEntry(
+        ctk.CTkEntry(
             container,
 
             textvariable=min_ram_var,
@@ -1385,9 +1545,7 @@ class LauncherApp(ctk.CTk):
             border_color=self.theme["border"],
 
             text_color=self.theme["text"],
-        )
-
-        min_ram_entry.pack(
+        ).pack(
             fill="x",
 
             pady=(6, 16)
@@ -1412,7 +1570,7 @@ class LauncherApp(ctk.CTk):
             )
         )
 
-        max_ram_entry = ctk.CTkEntry(
+        ctk.CTkEntry(
             container,
 
             textvariable=max_ram_var,
@@ -1426,17 +1584,13 @@ class LauncherApp(ctk.CTk):
             border_color=self.theme["border"],
 
             text_color=self.theme["text"],
-        )
-
-        max_ram_entry.pack(
+        ).pack(
             fill="x",
 
             pady=(6, 16)
         )
 
-        # ----------------------------------------------------
-        # Java executable
-        # ----------------------------------------------------
+        # Java
 
         SectionLabel(
             container,
@@ -1497,8 +1651,10 @@ class LauncherApp(ctk.CTk):
 
         def browse_java():
 
-            selected = filedialog.askopenfilename(
-                title="Select Java executable"
+            selected = (
+                filedialog.askopenfilename(
+                    title="Select Java executable"
+                )
             )
 
             if selected:
@@ -1524,9 +1680,7 @@ class LauncherApp(ctk.CTk):
             column=1,
         )
 
-        # ----------------------------------------------------
-        # JVM arguments
-        # ----------------------------------------------------
+        # JVM args
 
         SectionLabel(
             container,
@@ -1565,9 +1719,7 @@ class LauncherApp(ctk.CTk):
             pady=(6, 16)
         )
 
-        # ----------------------------------------------------
-        # Offline username
-        # ----------------------------------------------------
+        # Offline name
 
         SectionLabel(
             container,
@@ -1606,9 +1758,7 @@ class LauncherApp(ctk.CTk):
             pady=(6, 20)
         )
 
-        # ----------------------------------------------------
-        # Apply
-        # ----------------------------------------------------
+        # Save
 
         def apply_settings():
 
@@ -1645,7 +1795,9 @@ class LauncherApp(ctk.CTk):
 
                 messagebox.showerror(
                     "Invalid settings",
+
                     str(exc),
+
                     parent=window,
                 )
 
@@ -1688,11 +1840,17 @@ class LauncherApp(ctk.CTk):
 
             window.destroy()
 
+            # Refresh profile because offline name may
+            # have changed.
             if selected_theme != self.theme_name:
 
                 self._apply_theme(
                     selected_theme
                 )
+
+            else:
+
+                self._load_profile()
 
         PrimaryButton(
             container,
@@ -1710,9 +1868,7 @@ class LauncherApp(ctk.CTk):
             pady=(10, 20)
         )
 
-    # ========================================================
     # Theme
-    # ========================================================
 
     def _apply_theme(
         self,
@@ -1732,8 +1888,9 @@ class LauncherApp(ctk.CTk):
             theme_name,
         )
 
-        # Rebuild application UI.
-        for widget in self.winfo_children():
+        for widget in (
+            self.winfo_children()
+        ):
 
             widget.destroy()
 
@@ -1741,10 +1898,10 @@ class LauncherApp(ctk.CTk):
 
         self._load_saved_values()
 
+        self._load_profile()
 
-# ============================================================
+
 # Entry point compatibility
-# ============================================================
 
 if __name__ == "__main__":
 

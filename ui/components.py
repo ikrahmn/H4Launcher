@@ -7,10 +7,7 @@ import customtkinter as ctk
 
 FONT = "Arial"
 
-
-# ============================================================
-# H4Launcher themes
-# ============================================================
+# Themes
 
 THEMES = {
 
@@ -115,12 +112,11 @@ def get_theme(
         THEMES["Blue"],
     )
 
-
-# ============================================================
 # Buttons
-# ============================================================
 
-class PrimaryButton(ctk.CTkButton):
+class PrimaryButton(
+    ctk.CTkButton
+):
 
     def __init__(
         self,
@@ -171,7 +167,9 @@ class PrimaryButton(ctk.CTkButton):
         )
 
 
-class SecondaryButton(ctk.CTkButton):
+class SecondaryButton(
+    ctk.CTkButton
+):
 
     def __init__(
         self,
@@ -230,12 +228,11 @@ class SecondaryButton(ctk.CTkButton):
             **kwargs,
         )
 
-
-# ============================================================
 # Labels
-# ============================================================
 
-class SectionLabel(ctk.CTkLabel):
+class SectionLabel(
+    ctk.CTkLabel
+):
 
     def __init__(
         self,
@@ -265,10 +262,7 @@ class SectionLabel(ctk.CTkLabel):
             **kwargs,
         )
 
-
-# ============================================================
 # Progress
-# ============================================================
 
 class FlatProgressBar(
     ctk.CTkProgressBar
@@ -308,10 +302,7 @@ class FlatProgressBar(
 
         self.set(0)
 
-
-# ============================================================
 # Console
-# ============================================================
 
 class Console(
     ctk.CTkTextbox
@@ -407,3 +398,207 @@ class Console(
         self.configure(
             state="disabled"
         )
+
+# Profile card
+
+class ProfileCard(
+    ctk.CTkFrame
+):
+
+    def __init__(
+        self,
+        master,
+        theme: dict,
+        **kwargs,
+    ):
+
+        super().__init__(
+            master,
+
+            fg_color=theme["surface"],
+
+            corner_radius=5,
+
+            border_width=1,
+
+            border_color=theme["border"],
+
+            **kwargs,
+        )
+
+        self.theme = theme
+
+        self.grid_columnconfigure(
+            1,
+            weight=1,
+        )
+
+        # Avatar
+
+        self.avatar_label = ctk.CTkLabel(
+            self,
+
+            text="H4",
+
+            width=64,
+
+            height=64,
+
+            fg_color=theme["surface_alt"],
+
+            corner_radius=8,
+
+            font=ctk.CTkFont(
+                family=FONT,
+                size=16,
+                weight="bold",
+            ),
+
+            text_color=theme["accent"],
+        )
+
+        self.avatar_label.grid(
+            row=0,
+            column=0,
+
+            padx=18,
+            pady=16,
+        )
+
+        # Text
+
+        text_frame = ctk.CTkFrame(
+            self,
+
+            fg_color="transparent",
+        )
+
+        text_frame.grid(
+            row=0,
+            column=1,
+
+            sticky="ew",
+
+            padx=(0, 18),
+
+            pady=16,
+        )
+
+        self.name_label = ctk.CTkLabel(
+            text_frame,
+
+            text="Player",
+
+            font=ctk.CTkFont(
+                family=FONT,
+                size=17,
+                weight="bold",
+            ),
+
+            text_color=theme["text"],
+
+            anchor="w",
+        )
+
+        self.name_label.pack(
+            fill="x"
+        )
+
+        self.status_label = ctk.CTkLabel(
+            text_frame,
+
+            text="Offline profile",
+
+            font=ctk.CTkFont(
+                family=FONT,
+                size=11,
+            ),
+
+            text_color=theme["text_muted"],
+
+            anchor="w",
+        )
+
+        self.status_label.pack(
+            fill="x",
+
+            pady=(3, 0),
+        )
+
+        self.uuid_label = ctk.CTkLabel(
+            text_frame,
+
+            text="",
+
+            font=ctk.CTkFont(
+                family="Courier New",
+                size=9,
+            ),
+
+            text_color=theme["text_muted"],
+
+            anchor="w",
+        )
+
+        self.uuid_label.pack(
+            fill="x",
+
+            pady=(5, 0),
+        )
+
+    # Profile update
+
+    def set_profile(
+        self,
+        profile,
+    ):
+
+        self.name_label.configure(
+            text=profile.username
+        )
+
+        if profile.online:
+
+            self.status_label.configure(
+                text="Microsoft account"
+            )
+
+        else:
+
+            self.status_label.configure(
+                text="Offline profile"
+            )
+
+        self.uuid_label.configure(
+            text=profile.uuid
+        )
+
+        # Avatar
+
+        if profile.avatar:
+
+            image = ctk.CTkImage(
+                light_image=profile.avatar,
+
+                dark_image=profile.avatar,
+
+                size=(64, 64),
+            )
+
+            self.avatar_label.configure(
+                image=image,
+                text="",
+            )
+
+            # Keep reference alive.
+            self._avatar_image = image
+
+        else:
+
+            self.avatar_label.configure(
+                image=None,
+
+                text="H4",
+            )
+
+            self._avatar_image = None

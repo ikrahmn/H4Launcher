@@ -1,5 +1,3 @@
-# project_root/core/auth.py
-
 from __future__ import annotations
 
 import hashlib
@@ -376,9 +374,7 @@ def get_offline_profile() -> dict:
             username
         ),
 
-        # Offline mode intentionally
-        # does not have a real Microsoft
-        # authentication token.
+        # Offline mode intentionally does not have a real Microsoft authentication token.
         "access_token": "0",
         "refresh_token": "",
     }
