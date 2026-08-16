@@ -22,3 +22,6 @@ Thumbs.db
 *.secret
 *.tmp
 *.temp
+.github/
+build/
+gists/
